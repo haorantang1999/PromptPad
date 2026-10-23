@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+/*
+ * Prompt Pad 视觉语言：明快科技风 + 活力橙黄点缀。
+ * 近白玻璃、细描边；点缀色对齐科技产品常见的橙黄活力色。
+ */
+:root {
+  --pad-font: "Plus Jakarta Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --pad-text: #1d1d1f;
+  --pad-text-secondary: #6e6e73;
+  --pad-text-tertiary: #86868b;
+  /* 活力橙黄：偏暖、饱和度高，适合主 CTA / 焦点环 */
+  --pad-accent: #ff8a00;
+  --pad-accent-hover: #ffa01f;
+  --pad-accent-pressed: #e67a00;
+  --pad-accent-soft: rgb(255 138 0 / 0.12);
+  --pad-accent-ring: rgb(255 138 0 / 0.4);
+  --pad-surface: rgb(0 0 0 / 0.04);
+  --pad-surface-strong: rgb(0 0 0 / 0.06);
+  --pad-border: rgb(0 0 0 / 0.08);
+  --pad-border-strong: rgb(0 0 0 / 0.12);
+  --pad-panel-bg: rgb(255 255 255 / 0.92);
+  --pad-danger: #ff3b30;
+  --pad-warning: #e68600;
+  --pad-success: #34c759;
+  --pad-shadow:
+    0 12px 40px rgb(0 0 0 / 0.1),
+    0 2px 8px rgb(0 0 0 / 0.04);
+}
+
+/*
+ * Tauri 透明窗口：html → body → #root 必须整链透明，
+ * 否则透明窗口里会出现一个不透明的矩形底板（Windows 下 especially 明显）。
+ */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* 常驻浮窗默认不参与文本选择，避免拖拽 DOT 时误选中背景文字。 */
+body {
+  font-family: var(--pad-font);
+  color: var(--pad-text);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 需要复制的内容（改写结果、记忆条目）单独放开选择。 */
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 展开动画：200ms，落在设计约束的 150–250ms 区间内。
+   窗口本身由 Rust 侧瞬间完成尺寸切换，这里用内容层的淡入补足感知动画。 */
+@keyframes pad-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pad-enter {
+  animation: pad-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── 收起态 DOT（小蜜蜂）──
+   可见主体约 44px，窗口容器 64px：多出来的 20px 透明余量专门留给辉光与
+   点击波纹外扩，否则外扩部分会被窗口边界裁掉。
+
+   透明窗口上大面积 box-shadow 会在 WebView2 里落成「方形脏边」——
+   外层辉光改用圆形径向渐变，边缘真正淡到 alpha=0。 */
+
+.dot-glow {
+  background: radial-gradient(
+    circle at center,
+    rgb(255 180 40 / 0.38) 0%,
+    rgb(255 138 0 / 0.16) 40%,
+    rgb(255 138 0 / 0) 70%
+  );
+}
+
+@keyframes dot-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dot-glow-breathe {
+  animation: dot-glow-breathe 4.2s ease-in-out infinite;
+}
+
+/* 蜜蜂本体轻微上下浮动，比「硬发光球」更贴合角色感。 */
+@keyframes dot-bee-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+.dot-bee-float {
+  animation: dot-bee-float 3.6s ease-in-out infinite;
+}
+
+/* 拖拽中暂停呼吸：停在当前相位，松开后再继续才不会「从头闪一下」。 */
+.dot-orb-dragging .dot-glow-breathe,
+.dot-orb-dragging .dot-bee-float {
+  animation-play-state: paused;
+}
+
+/* 点击波纹：圆环从球心扩散到球缘之外，同时淡出。 */
+@keyframes dot-ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.dot-ripple {
+  border: 1.5px solid rgb(255 138 0 / 0.55);
+  animation: dot-ripple 0.55s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad-enter {
+    animation: none;
+  }
+  .dot-glow-breathe,
+  .dot-bee-float {
+    animation: none;
+  }
+  .dot-ripple {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* 滚动条压到最细，浮窗里多一条 15px 宽的滚动条会挤掉内容区。 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.18);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(0 0 0 / 0.28);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

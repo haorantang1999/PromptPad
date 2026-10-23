@@ -1,0 +1,64 @@
+[package]
+name = "prompt-pad"
+version = "0.1.0"
+description = "Prompt Pad —— 常驻 Windows 系统最上层、全局热键唤起、带私人记忆的提示词优化 Pad"
+authors = ["Prompt Pad"]
+edition = "2021"
+# 取自依赖链的实际 MSRV：tauri 2.12.4 要求 1.90，reqwest 0.13.5 要求 1.85。
+# 声明低于此值的版本号会让 CI 的 MSRV 检查形同虚设 —— 真正卡住编译的是依赖而不是本 crate。
+rust-version = "1.90"
+
+[lib]
+# cdylib/staticlib 供 Tauri 移动端与桌面端共用；rlib 供集成测试引用。
+name = "prompt_pad_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.4", features = ["tray-icon", "image-png"] }
+tauri-plugin-global-shortcut = "2.4.1"
+tauri-plugin-single-instance = "2.5.4"
+tauri-plugin-autostart = "2.7.0"
+tauri-plugin-clipboard-manager = "2.5.0"
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+# TLS 后端选 native-tls（Windows 走系统 SChannel）。
+# reqwest 0.13 的 default-tls 实际是 rustls + aws-lc-rs，Windows 上从源码构建
+# 需要 CMake/NASM，干净环境会直接构建失败；native-tls 零额外构建工具。
+# 其余 feature 与 reqwest 的 default 保持一致（charset / http2 / system-proxy）。
+reqwest = { version = "0.13.5", default-features = false, features = [
+  "json",
+  "charset",
+  "http2",
+  "system-proxy",
+  "native-tls",
+] }
+
+# SQLite + FTS5。bundled 编译带 FTS5 的 SQLite；load_extension 为阶段三 sqlite-vec 预留；
+# vtab 供 FTS5 虚拟表使用；backup 供索引重建时做安全快照。
+rusqlite = { version = "0.40.2", features = ["bundled", "load_extension", "vtab", "functions", "backup"] }
+
+# Win32 原始 FFI：只用于「独占全屏检测」「WS_EX_TOPMOST」「光标与鼠标键状态」三个必须落地的细节。
+# 选用 windows-sys 而非 windows，前者是裸 Win32 导出，签名稳定、没有 COM 包装层。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[features]
+# 默认关闭，供 CI 走 cargo test 时跳过需要真实窗口的集成测试。
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Prompt Pad 主窗口能力集。窗口控制全部在 Rust 侧完成，前端只保留必要的读取与剪贴板写入权限。",
+  "windows": ["pad"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-current-monitor",
+    "core:window:allow-available-monitors",
+    "core:window:allow-outer-position",
+    "core:window:allow-scale-factor",
+    "core:window:allow-start-dragging",
+    "global-shortcut:default",
+    "autostart:default",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text"
+  ]
+}

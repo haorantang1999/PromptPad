@@ -1,0 +1,9 @@
+# pnpm 12 把项目级设置集中到本文件，package.json 里的 "pnpm" 字段已不再被读取。
+
+# esbuild 的 postinstall 会下载/校验平台二进制，缺少它 Vite 无法构建。
+# vite 6.4.5 发布较新，豁免 minimumReleaseAge 的默认冷却窗口。
+minimumReleaseAgeExclude:
+  - vite@6.4.5
+
+allowBuilds:
+  esbuild: true
