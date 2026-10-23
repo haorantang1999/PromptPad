@@ -17,13 +17,8 @@ pub fn load_anchor(path: &Path) -> Anchor {
     serde_json::from_str(&raw).unwrap_or_default()
 }
 
-/// 原子写回锚点：先写临时文件再改名。
+/// 原子写回锚点：先写临时文件再替换。
 pub fn save_anchor(anchor: &Anchor, path: &Path) -> Result<(), AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(anchor)?)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    let body = serde_json::to_string_pretty(anchor)?;
+    crate::fsutil::write_atomic(path, body)
 }

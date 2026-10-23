@@ -428,16 +428,10 @@ pub fn load_with_status(path: &Path) -> Result<(AppConfig, ConfigFileStatus), Ap
     Ok((config, ConfigFileStatus::Ok))
 }
 
-/// 原子写回配置：先写临时文件再改名，避免进程中断留下半截 JSON。
+/// 原子写回配置：先写临时文件再替换，避免进程中断留下半截 JSON。
 pub fn save(config: &AppConfig, path: &Path) -> Result<(), AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("json.tmp");
     let body = serde_json::to_string_pretty(config)?;
-    fs::write(&tmp, body)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    crate::fsutil::write_atomic(path, body)
 }
 
 /// 校验嵌入模型名，非法时返回 `invalid_type`。
@@ -578,18 +572,17 @@ mod tests {
     #[test]
     fn 误填进环境变量名的明文被搬回本地字段() {
         // 复现历史状态：自动保存把用户粘贴的 key 写进了 api_key_env。
+        // 用明显假值，禁止把真实 key 写进单测（会进 git）。
+        const FAKE_KEY: &str = "sk-cp-NOT_A_REAL_KEY_FOR_UNIT_TEST_ONLY";
         let mut config = AppConfig {
-            api_key_env: "sk-cp-LRLaAYPcoIJMJM2LrWKkHyQzUmzzrAnFoz3AOZ1bQml".to_string(),
+            api_key_env: FAKE_KEY.to_string(),
             ..AppConfig::default()
         };
         if config.api_key.trim().is_empty() && !is_env_var_name(&config.api_key_env) {
             config.api_key = config.api_key_env.trim().to_string();
             config.api_key_env = default_api_key_env();
         }
-        assert_eq!(
-            config.api_key,
-            "sk-cp-LRLaAYPcoIJMJM2LrWKkHyQzUmzzrAnFoz3AOZ1bQml"
-        );
+        assert_eq!(config.api_key, FAKE_KEY);
         assert_eq!(config.api_key_env, "PROMPT_PAD_API_KEY");
     }
 

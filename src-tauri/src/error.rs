@@ -236,7 +236,28 @@ impl std::error::Error for AppError {}
 
 impl From<rusqlite::Error> for AppError {
     fn from(err: rusqlite::Error) -> Self {
-        AppError::storage_failure("SQLite 操作失败").with_details(err.to_string())
+        // 把底层原因写进 message：前端默认只展示 message，不展示 details。
+        let reason = err.to_string();
+        if matches!(
+            err,
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error {
+                    code: rusqlite::ErrorCode::DatabaseBusy,
+                    ..
+                },
+                _
+            ) | rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error {
+                    code: rusqlite::ErrorCode::DatabaseLocked,
+                    ..
+                },
+                _
+            )
+        ) {
+            return AppError::lock_conflict(format!("数据库正忙，请稍后重试（{reason}）"))
+                .with_details(reason);
+        }
+        AppError::storage_failure(format!("SQLite 写入失败：{reason}")).with_details(reason)
     }
 }
 

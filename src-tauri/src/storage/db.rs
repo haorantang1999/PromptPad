@@ -159,7 +159,11 @@ impl Db {
     fn init(conn: Connection) -> Result<Self, AppError> {
         // foreign_keys 是连接级设置，且在事务内为 no-op —— 必须在开事务之前设。
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+        // 本机偶发杀软 / 多连接争用时给几次重试，避免立刻冒成 storage_write_failed。
+        conn.busy_timeout(std::time::Duration::from_millis(5_000))?;
         conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+        // 把过大的 WAL 收进主库，降低「主库几 KB、WAL 几 MB」的半截状态。
+        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         conn.execute_batch(MIGRATION_001)?;
         migrate_schema(&conn)?;
         Ok(Self { conn })

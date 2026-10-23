@@ -470,7 +470,11 @@ export function Settings() {
   /** 把当前表单写盘。manual = 用户点了「保存」，auto = 自动保存。 */
   const persist = useCallback((origin: "auto" | "manual") => {
     const current = formRef.current;
-    if (baselineRef.current === null && origin === "auto") {
+    if (baselineRef.current === null) {
+      // 配置还没加载完：自动保存静默跳过；手动点保存要给反馈，否则像「点不动」。
+      if (origin === "manual") {
+        setSaveError("配置尚未加载完成，请稍后再试");
+      }
       return;
     }
     const fieldErrors = validate(current);
@@ -495,7 +499,18 @@ export function Settings() {
     );
     if (isEmptyPatch(patch)) {
       if (origin === "manual") {
-        setSaveError("没有需要保存的改动");
+        if (keyError || Object.keys(fieldErrors).length > 0) {
+          setSaveError("有字段未通过校验，请先修正后再保存");
+        } else if (apiKeyState.dirty && apiKeyValue.length === 0) {
+          setSaveError(
+            apiKeyPresent
+              ? "留空不会清除已保存的密钥；请粘贴新密钥后再保存"
+              : "请先填写 API key",
+          );
+        } else {
+          setSaveError(null);
+          setSaved(true);
+        }
       }
       return;
     }
@@ -529,7 +544,7 @@ export function Settings() {
         setSaved(false);
         setSaveError(readErrorMessage(err));
       });
-  }, [setStoreConfig]);
+  }, [apiKeyPresent, setStoreConfig]);
 
   const persistRef = useRef(persist);
   persistRef.current = persist;
@@ -645,9 +660,17 @@ export function Settings() {
     [scheduleAutoSave],
   );
 
+  /**
+   * 手动「立即保存」必须走 manual 语义：空补丁 / 未加载 / 校验失败都要有反馈。
+   * 之前误调 flushAutoSave（auto），空补丁时静默返回，看起来像按钮坏了。
+   */
   const handleSave = useCallback(() => {
-    flushAutoSave();
-  }, [flushAutoSave]);
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    persistRef.current("manual");
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -929,11 +952,18 @@ export function Settings() {
           </button>
           <button
             type="button"
+            /*
+              从 API key 等输入框直接点「保存」时，浏览器会先派发 blur 再派发 click。
+              blur 触发的自动保存会把 saving 置 true → 按钮 disabled → click 被吞掉，
+              表现为「立即保存点不动」。mousedown 上 preventDefault 可保住焦点、让 click 正常落下。
+            */
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
             onClick={handleSave}
-            disabled={saving}
-            className="rounded-full bg-[var(--pad-accent)] px-3.5 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--pad-accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pad-accent-ring)] disabled:cursor-not-allowed disabled:bg-[var(--pad-surface-strong)] disabled:text-[var(--pad-text-tertiary)]"
+            className="rounded-full bg-[var(--pad-accent)] px-3.5 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--pad-accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pad-accent-ring)]"
           >
-            立即保存
+            {saving ? "保存中…" : "立即保存"}
           </button>
         </div>
       </div>

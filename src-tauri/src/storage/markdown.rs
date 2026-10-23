@@ -430,15 +430,9 @@ pub fn append_pe_record(path: &Path, record: &PeRecord) -> Result<(), AppError> 
     write_atomic(path, &existing)
 }
 
-/// 原子写：先写临时文件再改名，避免中断留下半截文件。
+/// 原子写：委托给共用的 `fsutil`，避免 Windows 上固定 `*.tmp` 名残留卡住写盘。
 fn write_atomic(path: &Path, body: &str) -> Result<(), AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("md.tmp");
-    fs::write(&tmp, body)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    crate::fsutil::write_atomic(path, body)
 }
 
 /// 取一句话规则名：取 statement 的前 N 个字符。

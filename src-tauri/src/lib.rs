@@ -10,6 +10,7 @@ mod clock;
 mod commands;
 mod config;
 mod error;
+mod fsutil;
 mod geometry;
 mod models;
 mod services;
@@ -109,6 +110,10 @@ pub fn run() {
             let position_path = data_dir.join("position.json");
             let memory_dir = data_dir.join("memory");
             std::fs::create_dir_all(&memory_dir)?;
+            // 清掉上次崩溃留下的半截临时文件，避免卡住配置 / 记忆写盘。
+            let _ = fsutil::cleanup_stale_tmps(&config_dir);
+            let _ = fsutil::cleanup_stale_tmps(&data_dir);
+            let _ = fsutil::cleanup_stale_tmps(&memory_dir);
 
             let (config, config_status) = config::load_with_status(&config_path)?;
             let anchor = services::position::load_anchor(&position_path);
